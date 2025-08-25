@@ -25,16 +25,29 @@ except ImportError:
     pass
 
 # --- 2. API BİLGİLERİ ---
-# API bilgilerini .env dosyasından veya Streamlit gizli anahtarlarından okur.
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+# API bilgilerini Streamlit secrets'tan veya environment'tan okur
 try:
     API_BASE_URL = st.secrets["API_BASE_URL"]
-    API_KEY = st.secrets["API_KEY"]
+    API_KEY = st.secrets["API_KEY"] 
     API_SECRET = st.secrets["API_SECRET"]
-except:
-    # Fallback to environment variables for local development
-    API_BASE_URL = os.getenv("API_BASE_URL")
-    API_KEY = os.getenv("API_KEY")
-    API_SECRET = os.getenv("API_SECRET")
+    st.sidebar.success("API bilgileri Streamlit secrets'tan yüklendi")
+except KeyError:
+    try:
+        API_BASE_URL = os.getenv("API_BASE_URL")
+        API_KEY = os.getenv("API_KEY")
+        API_SECRET = os.getenv("API_SECRET")
+        st.sidebar.info("API bilgileri environment'tan yüklendi")
+    except:
+        API_BASE_URL = None
+        API_KEY = None
+        API_SECRET = None
+        st.sidebar.error("API bilgileri bulunamadı")
 
 # --- 3. HELPER FONKSİYONLARI ---
 def get_sentos_data(endpoint, params=None):
@@ -232,8 +245,14 @@ with col2:
 
 # Buton
 if st.button("Siparişleri Getir ve Raporla"):
+    # Debug bilgileri
+    st.write(f"API_BASE_URL: {API_BASE_URL}")
+    st.write(f"API_KEY: {'✓' if API_KEY else '✗'}")
+    st.write(f"API_SECRET: {'✓' if API_SECRET else '✗'}")
+    
     if not API_KEY or not API_SECRET or not API_BASE_URL:
-        st.error("API bilgileri eksik. Lütfen .env dosyasını kontrol edin.")
+        st.error("API bilgileri eksik. Lütfen Streamlit Cloud secrets ayarlarını kontrol edin.")
+        st.info("Secrets şu formatta olmalı: API_BASE_URL, API_KEY, API_SECRET")
     else:
         with st.spinner("Verileriniz yükleniyor, lütfen bekleyin..."):
             orders_data = get_orders(start_date, end_date)
