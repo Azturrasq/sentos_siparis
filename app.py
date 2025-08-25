@@ -26,9 +26,15 @@ except ImportError:
 
 # --- 2. API BİLGİLERİ ---
 # API bilgilerini .env dosyasından veya Streamlit gizli anahtarlarından okur.
-API_BASE_URL = os.getenv("API_BASE_URL")
-API_KEY = os.getenv("API_KEY")
-API_SECRET = os.getenv("API_SECRET")
+try:
+    API_BASE_URL = st.secrets["API_BASE_URL"]
+    API_KEY = st.secrets["API_KEY"]
+    API_SECRET = st.secrets["API_SECRET"]
+except:
+    # Fallback to environment variables for local development
+    API_BASE_URL = os.getenv("API_BASE_URL")
+    API_KEY = os.getenv("API_KEY")
+    API_SECRET = os.getenv("API_SECRET")
 
 # --- 3. HELPER FONKSİYONLARI ---
 def get_sentos_data(endpoint, params=None):
@@ -190,28 +196,27 @@ def process_data(orders_data, products_data):
     return final_df, None
 
 def load_printed_orders():
-    """Daha önce yazdırılmış siparişleri JSON dosyasından yükler."""
-    if os.path.exists('printed_orders.json'):
-        with open('printed_orders.json', 'r') as f:
-            try:
-                return set(json.load(f))
-            except json.JSONDecodeError:
-                return set()
-    return set()
+    """Daha önce yazdırılmış siparişleri session state'den yükler."""
+    return st.session_state.get('printed_orders_persistent', set())
 
 def save_printed_orders(orders):
-    """Yazdırılan siparişleri JSON dosyasına kaydeder."""
-    with open('printed_orders.json', 'w') as f:
-        json.dump(list(orders), f)
+    """Yazdırılan siparişleri session state'e kaydeder."""
+    st.session_state.printed_orders_persistent = orders
 
 def update_printed_orders_state():
-    """Raporu indirdikten sonra, güncel siparişleri oturum durumuna ve dosyaya kaydeder."""
+    """Raporu indirdikten sonra, güncel siparişleri oturum durumuna kaydeder."""
     if 'current_orders' in st.session_state:
-        st.session_state.printed_orders.update(st.session_state.current_orders)
-        save_printed_orders(st.session_state.printed_orders)
+        if 'printed_orders_persistent' not in st.session_state:
+            st.session_state.printed_orders_persistent = set()
+        st.session_state.printed_orders_persistent.update(st.session_state.current_orders)
+        st.session_state.printed_orders = st.session_state.printed_orders_persistent
 
 # --- 5. STREAMLIT ARAYÜZÜ (UI) ---
 st.title("Sentos Sipariş ve Ürün Raporlama Aracı")
+
+# Initialize session state
+if 'printed_orders' not in st.session_state:
+    st.session_state.printed_orders = load_printed_orders()
 
 st.markdown("""
 Bu araç, Sentos API'sini kullanarak belirlediğiniz tarih aralığındaki siparişleri,
