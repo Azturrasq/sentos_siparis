@@ -7,21 +7,6 @@ import os
 import json
 from datetime import date, datetime, timezone
 
-# Excel dosyası oluşturmak için openpyxl kütüphanesi gereklidir.
-# Bu kütüphaneyi sanal ortamınıza yüklediğinizden emin olun:
-# pip install openpyxl
-#
-# Not: Eğer bu satır hata verirse, Streamlit kütüphaneyi otomatik olarak yüklemeyebilir.
-# O zaman aşağıdaki komutu manuel olarak çalıştırmanız gerekir:
-# pip install pandas openpyxl streamlit requests python-dotenv
-
-# --- 1. GÜVENLİK: ORTAM DEĞİŞKENLERİNİ YÜKLEME ---
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
-
 # --- 2. API BİLGİLERİ ---
 # SADECE secrets'tan oku, başka yerden değil
 try:
