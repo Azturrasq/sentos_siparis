@@ -5,7 +5,6 @@ import requests
 import io
 import os
 import json
-from dotenv import load_dotenv
 from datetime import date, datetime, timezone
 
 # Excel dosyası oluşturmak için openpyxl kütüphanesi gereklidir.
@@ -17,16 +16,16 @@ from datetime import date, datetime, timezone
 # pip install pandas openpyxl streamlit requests python-dotenv
 
 # --- 1. GÜVENLİK: ORTAM DEĞİŞKENLERİNİ YÜKLEME ---
-# Proje klasöründeki .env dosyasını yükler.
-# Bu sayede hassas API bilgileri koddan ayrı tutulur.
-load_dotenv()
+# Streamlit Cloud'da gizli anahtarlar kullanıldığı için dotenv'e gerek kalmayabilir.
+# Bu nedenle, dotenv modülünün bulunamaması durumunda hata vermesini engelliyoruz.
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # --- 2. API BİLGİLERİ ---
-# API bilgilerini .env dosyasından güvenli bir şekilde okur.
-# .env dosyasında şu değişkenlerin tanımlı olması gerekir:
-# API_BASE_URL="https://stildiva.sentos.com.tr/api"
-# API_KEY="Sizin_API_Anahtarınız"
-# API_SECRET="Sizin_API_Gizli_Anahtarınız"
+# API bilgilerini .env dosyasından veya Streamlit gizli anahtarlarından okur.
 API_BASE_URL = os.getenv("API_BASE_URL")
 API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
@@ -184,7 +183,6 @@ def process_data(orders_data, products_data):
     })
     
     final_df.fillna('-', inplace=True)
-    # Boş stringleri de '-' ile doldurma
     final_df.replace('', '-', inplace=True)
 
     final_df['Not'] = ''
