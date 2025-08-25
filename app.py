@@ -23,23 +23,14 @@ except ImportError:
     pass
 
 # --- 2. API BİLGİLERİ ---
-# API bilgilerini Streamlit secrets'tan veya environment'tan okur
+# SADECE secrets'tan oku, başka yerden değil
 try:
     API_BASE_URL = st.secrets["API_BASE_URL"]
     API_KEY = st.secrets["API_KEY"] 
     API_SECRET = st.secrets["API_SECRET"]
-    st.sidebar.success("API bilgileri Streamlit secrets'tan yüklendi")
 except KeyError:
-    try:
-        API_BASE_URL = os.getenv("API_BASE_URL")
-        API_KEY = os.getenv("API_KEY")
-        API_SECRET = os.getenv("API_SECRET")
-        st.sidebar.info("API bilgileri environment'tan yüklendi")
-    except:
-        API_BASE_URL = None
-        API_KEY = None
-        API_SECRET = None
-        st.sidebar.error("API bilgileri bulunamadı")
+    st.error("API bilgileri Streamlit secrets'ta bulunamadı!")
+    st.stop()
 
 # --- 3. HELPER FONKSİYONLARI ---
 def get_sentos_data(endpoint, params=None):
