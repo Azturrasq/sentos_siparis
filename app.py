@@ -7,8 +7,8 @@ import os
 import json
 from datetime import date, datetime, timezone
 
-# --- 2. API BİLGİLERİ ---
-# SADECE secrets'tan oku, başka yerden değil
+# --- API BİLGİLERİ ---
+# SADECE secrets'tan oku
 try:
     API_BASE_URL = st.secrets["API_BASE_URL"]
     API_KEY = st.secrets["API_KEY"] 
