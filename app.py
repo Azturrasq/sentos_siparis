@@ -16,8 +16,6 @@ from datetime import date, datetime, timezone
 # pip install pandas openpyxl streamlit requests python-dotenv
 
 # --- 1. GÜVENLİK: ORTAM DEĞİŞKENLERİNİ YÜKLEME ---
-# Streamlit Cloud'da gizli anahtarlar kullanıldığı için dotenv'e gerek kalmayabilir.
-# Bu nedenle, dotenv modülünün bulunamaması durumunda hata vermesini engelliyoruz.
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -25,12 +23,6 @@ except ImportError:
     pass
 
 # --- 2. API BİLGİLERİ ---
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
-
 # API bilgilerini Streamlit secrets'tan veya environment'tan okur
 try:
     API_BASE_URL = st.secrets["API_BASE_URL"]
