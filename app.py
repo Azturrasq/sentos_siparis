@@ -247,84 +247,56 @@ with col1:
 with col2:
     end_date = st.date_input("Bitiş Tarihi", date.today())
 
-# DEBUG BUTONLARI EKLE
-col1, col2, col3 = st.columns(3)
-with col1:
-    if st.button("Siparişleri Getir ve Raporla"):
-        if not API_KEY or not API_SECRET or not API_BASE_URL:
-            st.error("API bilgileri eksik. Lütfen Streamlit Cloud secrets ayarlarını kontrol edin.")
-        else:
-            with st.spinner("Verileriniz yükleniyor, lütfen bekleyin..."):
-                orders_data = get_orders(start_date, end_date)
-                
-                if orders_data is not None:
-                    final_report_df, error_message = process_data(orders_data, None)
-                    
-                    if error_message:
-                        st.error(error_message)
-                    elif final_report_df is not None:
-                        # Daha önce yazdırılmış siparişleri kontrol et
-                        printed_orders_set = st.session_state.get('printed_orders_persistent', set())
-                        
-                        # Güncel siparişleri session'a kaydet (henüz yazdırılmadı)
-                        current_order_set = set(final_report_df['Sipariş No'].unique())
-                        st.session_state.current_orders = current_order_set
-
-                        # NOT sütununu güncelle - sadece daha önce Excel'e aktarılanlar için
-                        for index in final_report_df.index:
-                            order_id = final_report_df.loc[index, 'Sipariş No']
-                            if order_id in printed_orders_set:
-                                final_report_df.loc[index, 'Not'] = 'Daha önce yazdırıldı.'
-                            
-                        st.success(f"Başarılı! {len(final_report_df)} adet sipariş satırı raporlandı.")
-                        
-                        # Yazdırılmış sipariş bilgisi
-                        already_printed = len([x for x in current_order_set if x in printed_orders_set])
-                        if already_printed > 0:
-                            st.info(f"ℹ️ {already_printed} sipariş daha önce Excel'e aktarılmış (sarı renkte gösteriliyor)")
-                        
-                        st.subheader("Oluşturulan Rapor")
-                        st.dataframe(final_report_df)
-
-                        # Excel indirme butonu - ÖNEMLİ: Bu butona basılınca siparişler "yazdırıldı" olur
-                        excel_buffer = io.BytesIO()
-                        final_report_df.to_excel(excel_buffer, index=False, engine='openpyxl')
-                        
-                        st.download_button(
-                            label="📊 Raporu XLSX Olarak İndir",
-                            data=excel_buffer.getvalue(),
-                            file_name=f"sentos_rapor_{start_date}_{end_date}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            on_click=save_printed_orders_to_persistent,  # BU ÖNEMLİ: İndirme yaparken kaydet
-                            help="Bu butona basınca siparişler 'yazdırıldı' olarak işaretlenir"
-                        )
-                    else:
-                        st.info("Belirtilen tarih aralığında sipariş bulunamadı.")
-                else:
-                    st.info("API'den veri çekilemedi. Lütfen bağlantı bilgilerinizi kontrol edin.")
-
-with col2:
-    if st.button("🗑️ Yazdırılmış Siparişleri Temizle"):
-        if 'printed_orders_persistent' in st.session_state:
-            count = len(st.session_state.printed_orders_persistent)
-            st.session_state.printed_orders_persistent = set()
-            st.success(f"✅ {count} yazdırılmış sipariş listesi temizlendi!")
-        else:
-            st.info("Temizlenecek yazdırılmış sipariş yok.")
-        
-        if 'current_orders' in st.session_state:
-            del st.session_state.current_orders
-
-with col3:
-    if st.button("🔍 Debug Bilgilerini Göster"):
-        st.write("**Yazdırılmış Siparişler:**")
-        printed = st.session_state.get('printed_orders_persistent', set())
-        if printed:
-            st.write(f"Toplam: {len(printed)} sipariş")
-            st.write(f"İlk 10: {list(printed)[:10]}")
-        else:
-            st.write("Henüz yazdırılmış sipariş yok")
+# Sadece ana buton kalsın
+if st.button("Siparişleri Getir ve Raporla"):
+    if not API_KEY or not API_SECRET or not API_BASE_URL:
+        st.error("API bilgileri eksik. Lütfen Streamlit Cloud secrets ayarlarını kontrol edin.")
+    else:
+        with st.spinner("Verileriniz yükleniyor, lütfen bekleyin..."):
+            orders_data = get_orders(start_date, end_date)
             
-        current = st.session_state.get('current_orders', set())
-        if current:
-            st.write(f"**Şu anki sorgu:** {len(current)} sipariş")
+            if orders_data is not None:
+                final_report_df, error_message = process_data(orders_data, None)
+                
+                if error_message:
+                    st.error(error_message)
+                elif final_report_df is not None:
+                    # Daha önce yazdırılmış siparişleri kontrol et
+                    printed_orders_set = st.session_state.get('printed_orders_persistent', set())
+                    
+                    # Güncel siparişleri session'a kaydet (henüz yazdırılmadı)
+                    current_order_set = set(final_report_df['Sipariş No'].unique())
+                    st.session_state.current_orders = current_order_set
+
+                    # NOT sütununu güncelle - sadece daha önce Excel'e aktarılanlar için
+                    for index in final_report_df.index:
+                        order_id = final_report_df.loc[index, 'Sipariş No']
+                        if order_id in printed_orders_set:
+                            final_report_df.loc[index, 'Not'] = 'Daha önce yazdırıldı.'
+                        
+                    st.success(f"Başarılı! {len(final_report_df)} adet sipariş satırı raporlandı.")
+                    
+                    # Yazdırılmış sipariş bilgisi
+                    already_printed = len([x for x in current_order_set if x in printed_orders_set])
+                    if already_printed > 0:
+                        st.info(f"ℹ️ {already_printed} sipariş daha önce Excel'e aktarılmış (sarı renkte gösteriliyor)")
+                    
+                    st.subheader("Oluşturulan Rapor")
+                    st.dataframe(final_report_df)
+
+                    # Excel indirme butonu - ÖNEMLİ: Bu butona basılınca siparişler "yazdırıldı" olur
+                    excel_buffer = io.BytesIO()
+                    final_report_df.to_excel(excel_buffer, index=False, engine='openpyxl')
+                    
+                    st.download_button(
+                        label="📊 Raporu XLSX Olarak İndir",
+                        data=excel_buffer.getvalue(),
+                        file_name=f"sentos_rapor_{start_date}_{end_date}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        on_click=save_printed_orders_to_persistent,  # BU ÖNEMLİ: İndirme yaparken kaydet
+                        help="Bu butona basınca siparişler 'yazdırıldı' olarak işaretlenir"
+                    )
+                else:
+                    st.info("Belirtilen tarih aralığında sipariş bulunamadı.")
+            else:
+                st.info("API'den veri çekilemedi. Lütfen bağlantı bilgilerinizi kontrol edin.")
