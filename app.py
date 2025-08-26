@@ -6,6 +6,7 @@ import io
 import os
 import json
 from datetime import date, datetime, timezone
+from pathlib import Path
 
 # --- 2. API BİLGİLERİ ---
 # Hem yerel hem cloud'da çalışacak şekilde
@@ -191,22 +192,40 @@ def process_data(orders_data, products_data):
     except Exception as e:
         return None, f"Veri işleme hatası: {str(e)}"
 
+# Yazdırılmış siparişleri JSON dosyasında sakla
+PRINTED_ORDERS_FILE = "printed_orders.json"
+
 def load_printed_orders():
     """Daha önce Excel'e aktarılmış siparişleri yükler - kalıcı olarak saklanır."""
-    # Streamlit Cloud'da kalıcı saklamak için secrets veya database gerekir
-    # Şimdilik session state kullanıyoruz ama bu persistent olacak
-    return st.session_state.get('printed_orders_persistent', set())
+    try:
+        if os.path.exists(PRINTED_ORDERS_FILE):
+            with open(PRINTED_ORDERS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return set(data)
+        return set()
+    except:
+        return set()
 
 def save_printed_orders_to_persistent():
     """Excel indirme butonuna basıldığında çalışır - siparişleri kalıcı olarak kaydeder."""
     if 'current_orders' in st.session_state:
-        # Mevcut yazdırılmış siparişleri getir
-        if 'printed_orders_persistent' not in st.session_state:
-            st.session_state.printed_orders_persistent = set()
+        # Mevcut yazdırılmış siparişleri yükle
+        printed_orders = load_printed_orders()
         
         # Yeni siparişleri ekle
         current_orders = st.session_state.current_orders
-        st.session_state.printed_orders_persistent.update(current_orders)
+        printed_orders.update(current_orders)
+        
+        # JSON dosyasına kaydet
+        try:
+            with open(PRINTED_ORDERS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(list(printed_orders), f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            st.error(f"Yazdırılmış siparişler kaydedilemedi: {e}")
+            return
+        
+        # Session state'i de güncelle
+        st.session_state.printed_orders_persistent = printed_orders
         
         # Başarı mesajı
         st.success(f"✅ {len(current_orders)} sipariş 'yazdırıldı' olarak işaretlendi!")
@@ -214,9 +233,9 @@ def save_printed_orders_to_persistent():
 # --- 5. STREAMLIT ARAYÜZÜ (UI) ---
 st.title("Sentos Sipariş ve Ürün Raporlama Aracı")
 
-# Initialize session state - uygulama açıldığında yazdırılmış siparişleri yükle
+# Initialize session state - JSON dosyasından yükle
 if 'printed_orders_persistent' not in st.session_state:
-    st.session_state.printed_orders_persistent = set()
+    st.session_state.printed_orders_persistent = load_printed_orders()
 
 st.markdown("""
 Bu araç, Sentos API'sini kullanarak belirlediğiniz tarih aralığındaki siparişleri,

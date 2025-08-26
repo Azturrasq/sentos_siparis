@@ -3,3 +3,5 @@
 .streamlit/secrets.toml
 *.env
 __pycache__/
+.DS_Store
+printed_orders.json
