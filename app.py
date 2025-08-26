@@ -192,34 +192,39 @@ def process_data(orders_data, products_data):
     except Exception as e:
         return None, f"Veri işleme hatası: {str(e)}"
 
-# Yazdırılmış siparişleri JSON dosyasında sakla
+# Yazdırılmış siparişleri JSON dosyasında sakla (tarih bilgisiyle)
 PRINTED_ORDERS_FILE = "printed_orders.json"
 
 def load_printed_orders():
-    """Daha önce Excel'e aktarılmış siparişleri yükler - kalıcı olarak saklanır."""
+    """Daha önce Excel'e aktarılmış siparişleri yükler - tarih bilgisiyle."""
     try:
         if os.path.exists(PRINTED_ORDERS_FILE):
             with open(PRINTED_ORDERS_FILE, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                return set(data)
-        return set()
+                return data  # Dict formatı: {"sipariş_no": "yazdırıldığı_tarih"}
+        return {}
     except:
-        return set()
+        return {}
 
 def save_printed_orders_to_persistent():
-    """Excel indirme butonuna basıldığında çalışır - siparişleri kalıcı olarak kaydeder."""
+    """Excel indirme butonuna basıldığında çalışır - siparişleri tarihiyle birlikte kaydeder."""
     if 'current_orders' in st.session_state:
         # Mevcut yazdırılmış siparişleri yükle
         printed_orders = load_printed_orders()
         
-        # Yeni siparişleri ekle
+        # Bugünkü tarihi al
+        today = datetime.now().strftime("%d.%m.%Y")
+        
+        # Yeni siparişleri tarihiyle birlikte ekle
         current_orders = st.session_state.current_orders
-        printed_orders.update(current_orders)
+        for order_id in current_orders:
+            if order_id not in printed_orders:  # Sadece daha önce yazdırılmamışları ekle
+                printed_orders[order_id] = today
         
         # JSON dosyasına kaydet
         try:
             with open(PRINTED_ORDERS_FILE, 'w', encoding='utf-8') as f:
-                json.dump(list(printed_orders), f, ensure_ascii=False, indent=2)
+                json.dump(printed_orders, f, ensure_ascii=False, indent=2)
         except Exception as e:
             st.error(f"Yazdırılmış siparişler kaydedilemedi: {e}")
             return
@@ -228,7 +233,7 @@ def save_printed_orders_to_persistent():
         st.session_state.printed_orders_persistent = printed_orders
         
         # Başarı mesajı
-        st.success(f"✅ {len(current_orders)} sipariş 'yazdırıldı' olarak işaretlendi!")
+        st.success(f"✅ {len(current_orders)} sipariş '{today}' tarihinde yazdırıldı olarak işaretlendi!")
 
 # --- 5. STREAMLIT ARAYÜZÜ (UI) ---
 st.title("Sentos Sipariş ve Ürün Raporlama Aracı")
@@ -249,56 +254,109 @@ with col1:
 with col2:
     end_date = st.date_input("Bitiş Tarihi", date.today())
 
-# Sadece ana buton kalsın
-if st.button("Siparişleri Getir ve Raporla"):
-    if not API_KEY or not API_SECRET or not API_BASE_URL:
-        st.error("API bilgileri eksik. Lütfen Streamlit Cloud secrets ayarlarını kontrol edin.")
-    else:
-        with st.spinner("Verileriniz yükleniyor, lütfen bekleyin..."):
-            orders_data = get_orders(start_date, end_date)
-            
-            if orders_data is not None:
-                final_report_df, error_message = process_data(orders_data, None)
+# Ana butonlar
+col1, col2 = st.columns(2)
+with col1:
+    if st.button("Siparişleri Getir ve Raporla"):
+        if not API_KEY or not API_SECRET or not API_BASE_URL:
+            st.error("API bilgileri eksik. Lütfen Streamlit Cloud secrets ayarlarını kontrol edin.")
+        else:
+            with st.spinner("Verileriniz yükleniyor, lütfen bekleyin..."):
+                orders_data = get_orders(start_date, end_date)
                 
-                if error_message:
-                    st.error(error_message)
-                elif final_report_df is not None:
-                    # Daha önce yazdırılmış siparişleri kontrol et
-                    printed_orders_set = st.session_state.get('printed_orders_persistent', set())
+                if orders_data is not None:
+                    final_report_df, error_message = process_data(orders_data, None)
                     
-                    # Güncel siparişleri session'a kaydet (henüz yazdırılmadı)
-                    current_order_set = set(final_report_df['Sipariş No'].unique())
-                    st.session_state.current_orders = current_order_set
-
-                    # NOT sütununu güncelle - sadece daha önce Excel'e aktarılanlar için
-                    for index in final_report_df.index:
-                        order_id = final_report_df.loc[index, 'Sipariş No']
-                        if order_id in printed_orders_set:
-                            final_report_df.loc[index, 'Not'] = 'Daha önce yazdırıldı.'
+                    if error_message:
+                        st.error(error_message)
+                    elif final_report_df is not None:
+                        # Daha önce yazdırılmış siparişleri kontrol et (tarihli)
+                        printed_orders_dict = st.session_state.get('printed_orders_persistent', {})
                         
-                    st.success(f"Başarılı! {len(final_report_df)} adet sipariş satırı raporlandı.")
-                    
-                    # Yazdırılmış sipariş bilgisi
-                    already_printed = len([x for x in current_order_set if x in printed_orders_set])
-                    if already_printed > 0:
-                        st.info(f"ℹ️ {already_printed} sipariş daha önce Excel'e aktarılmış (sarı renkte gösteriliyor)")
-                    
-                    st.subheader("Oluşturulan Rapor")
-                    st.dataframe(final_report_df)
+                        # Güncel siparişleri session'a kaydet (henüz yazdırılmadı)
+                        current_order_set = set(final_report_df['Sipariş No'].unique())
+                        st.session_state.current_orders = current_order_set
 
-                    # Excel indirme butonu - ÖNEMLİ: Bu butona basılınca siparişler "yazdırıldı" olur
-                    excel_buffer = io.BytesIO()
-                    final_report_df.to_excel(excel_buffer, index=False, engine='openpyxl')
-                    
-                    st.download_button(
-                        label="📊 Raporu XLSX Olarak İndir",
-                        data=excel_buffer.getvalue(),
-                        file_name=f"sentos_rapor_{start_date}_{end_date}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        on_click=save_printed_orders_to_persistent,  # BU ÖNEMLİ: İndirme yaparken kaydet
-                        help="Bu butona basınca siparişler 'yazdırıldı' olarak işaretlenir"
-                    )
+                        # NOT sütununu güncelle - tarih bilgisiyle
+                        for index in final_report_df.index:
+                            order_id = str(final_report_df.loc[index, 'Sipariş No'])
+                            if order_id in printed_orders_dict:
+                                print_date = printed_orders_dict[order_id]
+                                final_report_df.loc[index, 'Not'] = f"{print_date}'te yazdırıldı"
+                        
+                        # Rapor başarı mesajı
+                        st.success(f"Başarılı! {len(final_report_df)} adet sipariş satırı raporlandı.")
+                        
+                        # Yazdırılmış sipariş bilgisi
+                        already_printed = len([x for x in current_order_set if str(x) in printed_orders_dict])
+                        if already_printed > 0:
+                            st.info(f"ℹ️ {already_printed} sipariş daha önce yazdırılmış (NOT sütununda tarihi ile birlikte gösteriliyor)")
+                        
+                        # SİPARİŞ ARAMA BARI
+                        st.subheader("🔍 Sipariş Arama")
+                        search_order = st.text_input("Sipariş numarası girin:", placeholder="Örn: 10457337072")
+                        
+                        # Filtrelenmiş veriyi göster
+                        display_df = final_report_df.copy()
+                        
+                        if search_order:
+                            # Arama yapılmışsa filtrele
+                            filtered_df = display_df[display_df['Sipariş No'].astype(str).str.contains(search_order, na=False, case=False)]
+                            if not filtered_df.empty:
+                                st.success(f"🎯 '{search_order}' için {len(filtered_df)} sonuç bulundu:")
+                                display_df = filtered_df
+                            else:
+                                st.warning(f"❌ '{search_order}' için sonuç bulunamadı.")
+                                display_df = pd.DataFrame()  # Boş dataframe
+                        
+                        # Raporu göster
+                        if not display_df.empty:
+                            st.subheader("Oluşturulan Rapor")
+                            st.dataframe(display_df)
+                            
+                            # İstatistikler
+                            if search_order:
+                                unique_orders = display_df['Sipariş No'].nunique()
+                                st.info(f"📊 Görüntülenen: {unique_orders} sipariş, {len(display_df)} ürün")
+                            
+                            # Excel indirme butonu - TÜM VERİYİ İNDİR (sadece görüntülenen değil)
+                            excel_buffer = io.BytesIO()
+                            final_report_df.to_excel(excel_buffer, index=False, engine='openpyxl')
+                            
+                            st.download_button(
+                                label="📊 Tüm Raporu XLSX Olarak İndir",
+                                data=excel_buffer.getvalue(),
+                                file_name=f"sentos_rapor_{start_date}_{end_date}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                on_click=save_printed_orders_to_persistent,
+                                help="Bu butona basınca TÜM siparişler 'yazdırıldı' olarak işaretlenir"
+                            )
+                    else:
+                        st.info("Belirtilen tarih aralığında sipariş bulunamadı.")
                 else:
-                    st.info("Belirtilen tarih aralığında sipariş bulunamadı.")
-            else:
-                st.info("API'den veri çekilemedi. Lütfen bağlantı bilgilerinizi kontrol edin.")
+                    st.info("API'den veri çekilemedi. Lütfen bağlantı bilgilerinizi kontrol edin.")
+
+with col2:
+    if st.button("🗑️ Yazdırılmış Siparişleri Temizle"):
+        try:
+            # JSON dosyasını sil
+            if os.path.exists(PRINTED_ORDERS_FILE):
+                os.remove(PRINTED_ORDERS_FILE)
+            
+            # Session state'i temizle
+            st.session_state.printed_orders_persistent = {}
+            if 'current_orders' in st.session_state:
+                del st.session_state.current_orders
+                
+            st.success("✅ Yazdırılmış sipariş listesi kalıcı olarak temizlendi!")
+        except Exception as e:
+            st.error(f"Temizleme hatası: {e}")
+
+# Debug bilgileri
+if st.checkbox("🔍 Debug Bilgilerini Göster"):
+    st.write("**Yazdırılmış Siparişler:**")
+    printed = st.session_state.get('printed_orders_persistent', {})
+    if printed:
+        st.json(printed)
+    else:
+        st.write("Henüz yazdırılmış sipariş yok")
