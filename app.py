@@ -146,26 +146,26 @@ def process_data(orders_data, products_data):
                 barcode = item.get('barcode', '')
                 product_name = item.get('product_name', item.get('name', 'Bilinmiyor'))
                 
-                # TEMEL SİPARİŞ BİLGİLERİ - HER ZAMAN EKLE
+                # TEMEL SİPARİŞ BİLGİLERİ - HER ZAMAN OLUŞTUR
                 row_data = {
                     'Sipariş No': order_id,
                     'Platform': platform,
-                    'Ürün Barkodu': barcode if barcode else 'N/A',  # BOŞ OLSA DAHİ N/A YAZ
+                    'Ürün Barkodu': barcode if barcode else 'N/A',
                     'Ürün Adı': product_name,
                     'Adet': item.get('quantity', 1),
                     'Ürün Kodu': '',
                     'Ürün Rengi': '',
                     'Ürün Modeli': '',
                     'Raf No': '',
-                    'Not': ''
+                    'Not': 'Barkod yok'  # Varsayılan
                 }
                 
-                # BARKOD VAR VE BOŞ DEĞİLSE EŞLEŞTIRME DENE
+                # BARKOD VARSA EŞLEŞTIRME DENEMESİ
                 if barcode and barcode.strip():
                     product_info = local_df[local_df['Ürün Barkodu'].astype(str) == str(barcode)]
                     
                     if not product_info.empty:
-                        # Eşleşme bulundu - bilgileri güncelle
+                        # Eşleşme bulundu
                         row_data['Ürün Kodu'] = product_info.iloc[0]['Ürün Kodu']
                         row_data['Ürün Rengi'] = product_info.iloc[0]['Ürün Rengi']
                         row_data['Ürün Modeli'] = product_info.iloc[0]['Ürün Modeli']
@@ -174,11 +174,8 @@ def process_data(orders_data, products_data):
                     else:
                         # Barkod var ama eşleşmiyor
                         row_data['Not'] = 'Eşleşmedi'
-                else:
-                    # BARKOD YOK AMA YİNE DE SİPARİŞİ EKLE
-                    row_data['Not'] = 'Barkod yok'
                 
-                # HER SİPARİŞİ MUTLAKA EKLE - BARKOD OLSUN OLMASIN!
+                # HER SİPARİŞİ MUTLAKA EKLE - IF DIŞINDA!
                 processed_orders.append(row_data)
         
         if not processed_orders:
