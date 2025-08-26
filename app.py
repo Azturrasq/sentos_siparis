@@ -370,12 +370,3 @@ if 'final_report' in st.session_state:
             on_click=save_printed_orders_to_persistent,
             help="Bu butona basınca TÜM siparişler 'yazdırıldı' olarak işaretlenir"
         )
-
-# Debug bilgileri (isteğe bağlı)
-if st.checkbox("🔍 Debug Bilgilerini Göster"):
-    st.write("**Yazdırılmış Siparişler:**")
-    printed = st.session_state.get('printed_orders_persistent', {})
-    if printed:
-        st.json(printed)
-    else:
-        st.write("Henüz yazdırılmış sipariş yok")
