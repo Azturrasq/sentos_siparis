@@ -236,7 +236,33 @@ def save_printed_orders_to_persistent():
         st.success(f"✅ {len(current_orders)} sipariş '{today}' tarihinde yazdırıldı olarak işaretlendi!")
 
 # --- 5. STREAMLIT ARAYÜZÜ (UI) ---
-st.title("Sentos Sipariş ve Ürün Raporlama Aracı")
+
+# Sidebar success mesajını kaldır - bunun yerine main area'da gösterilecek
+
+st.markdown("""
+<style>
+    /* Sidebar'ı gizle */
+    .css-1d391kg, .css-1cypcdb {
+        display: none !important;
+    }
+    
+    /* Ana içeriği genişlet */
+    .css-18e3th9 {
+        padding-left: 1rem !important;
+    }
+    
+    /* Başlık fontunu küçült */
+    .main-header {
+        font-size: 1.8rem !important;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        line-height: 1.2 !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# Küçük başlık
+st.markdown('<h1 class="main-header">Sentos Sipariş ve Ürün Raporlama Aracı</h1>', unsafe_allow_html=True)
 
 # Initialize session state - JSON dosyasından yükle
 if 'printed_orders_persistent' not in st.session_state:
@@ -257,16 +283,19 @@ with col2:
 # TEK BUTON - TAM GENİŞLİK
 if st.button("Siparişleri Getir ve Raporla"):
     if not API_KEY or not API_SECRET or not API_BASE_URL:
-        st.error("API bilgileri eksik. Lütfen Streamlit Cloud secrets ayarlarını kontrol edin.")
+        st.error("❌ API bilgileri eksik. Lütfen Streamlit Cloud secrets ayarlarını kontrol edin.")
     else:
         with st.spinner("Verileriniz yükleniyor, lütfen bekleyin..."):
             orders_data = get_orders(start_date, end_date)
             
             if orders_data is not None:
+                # API BAŞARILI MESAJI - ORTA ALANDA
+                st.success("✅ API'den sipariş verileri başarıyla alındı!")
+                
                 final_report_df, error_message = process_data(orders_data, None)
                 
                 if error_message:
-                    st.error(error_message)
+                    st.error(f"❌ {error_message}")
                 elif final_report_df is not None:
                     # Daha önce yazdırılmış siparişleri kontrol et (tarihli)
                     printed_orders_dict = st.session_state.get('printed_orders_persistent', {})
@@ -291,17 +320,17 @@ if st.button("Siparişleri Getir ve Raporla"):
                     # ÖNEMLİ: Raporu session state'te sakla
                     st.session_state.final_report = final_report_df
                     
-                    # Rapor başarı mesajı
-                    st.success(f"Başarılı! {len(final_report_df)} adet sipariş satırı raporlandı.")
+                    # Rapor başarı mesajı - ORTA ALANDA
+                    st.success(f"✅ Başarılı! {len(final_report_df)} adet sipariş satırı raporlandı.")
                     
                     # Yazdırılmış sipariş bilgisi
                     already_printed = len([x for x in current_order_set if str(x) in printed_orders_dict])
                     if already_printed > 0:
                         st.info(f"ℹ️ {already_printed} sipariş daha önce yazdırılmış (NOT sütununda tarihi ile birlikte gösteriliyor)")
                 else:
-                    st.info("Belirtilen tarih aralığında sipariş bulunamadı.")
+                    st.info("ℹ️ Belirtilen tarih aralığında sipariş bulunamadı.")
             else:
-                st.info("API'den veri çekilemedi. Lütfen bağlantı bilgilerinizi kontrol edin.")
+                st.error("❌ API'den veri çekilemedi. Lütfen bağlantı bilgilerinizi kontrol edin.")
 
 # RAPOR GÖSTERME KISMI - SESSION STATE'TEN
 if 'final_report' in st.session_state:
@@ -347,12 +376,3 @@ if 'final_report' in st.session_state:
             on_click=save_printed_orders_to_persistent,
             help="Bu butona basınca TÜM siparişler 'yazdırıldı' olarak işaretlenir"
         )
-
-# Debug bilgileri (isteğe bağlı)
-if st.checkbox("🔍 Debug Bilgilerini Göster"):
-    st.write("**Yazdırılmış Siparişler:**")
-    printed = st.session_state.get('printed_orders_persistent', {})
-    if printed:
-        st.json(printed)
-    else:
-        st.write("Henüz yazdırılmış sipariş yok")
