@@ -146,50 +146,37 @@ def process_data(orders_data, products_data):
                 barcode = item.get('barcode', '')
                 product_name = item.get('product_name', item.get('name', 'Bilinmiyor'))
                 
-                # TÜM SİPARİŞLERİ EKLE - BARKOD OLSUN OLMASIN!
+                # TEMEL SİPARİŞ BİLGİLERİ - HER ZAMAN EKLE
                 row_data = {
                     'Sipariş No': order_id,
                     'Platform': platform,
-                    'Ürün Barkodu': barcode if barcode else 'Barkod Yok',
+                    'Ürün Barkodu': barcode if barcode else '',
                     'Ürün Adı': product_name,
                     'Adet': item.get('quantity', 1),
+                    'Ürün Kodu': '',
+                    'Ürün Rengi': '',
+                    'Ürün Modeli': '',
+                    'Raf No': '',
                     'Not': ''
                 }
                 
-                # BARKOD KONTROLÜ: Varsa eşleştir, yoksa varsayılan değerler
+                # SADECE BARKOD VARSA EŞLEŞTIRME DENEMESİ YAP
                 if barcode and barcode.strip():
-                    # Barkod var - yerel verilerden ara
                     product_info = local_df[local_df['Ürün Barkodu'].astype(str) == str(barcode)]
                     
                     if not product_info.empty:
-                        # Eşleşme bulundu
-                        row_data.update({
-                            'Ürün Kodu': product_info.iloc[0]['Ürün Kodu'],
-                            'Ürün Rengi': product_info.iloc[0]['Ürün Rengi'],
-                            'Ürün Modeli': product_info.iloc[0]['Ürün Modeli'],
-                            'Raf No': product_info.iloc[0]['Raf No'],
-                            'Not': 'Eşleşti'
-                        })
+                        # Eşleşme bulundu - bilgileri güncelle
+                        row_data['Ürün Kodu'] = product_info.iloc[0]['Ürün Kodu']
+                        row_data['Ürün Rengi'] = product_info.iloc[0]['Ürün Rengi']
+                        row_data['Ürün Modeli'] = product_info.iloc[0]['Ürün Modeli']
+                        row_data['Raf No'] = product_info.iloc[0]['Raf No']
+                        row_data['Not'] = 'Eşleşti'
                     else:
                         # Barkod var ama eşleşmiyor
-                        row_data.update({
-                            'Ürün Kodu': 'Bulunamadı',
-                            'Ürün Rengi': 'Bulunamadı', 
-                            'Ürün Modeli': 'Bulunamadı',
-                            'Raf No': 'Bulunamadı',
-                            'Not': 'Eşleşmedi'
-                        })
-                else:
-                    # Barkod yok (Shopify siparişleri)
-                    row_data.update({
-                        'Ürün Kodu': 'Barkod Yok',
-                        'Ürün Rengi': 'Barkod Yok',
-                        'Ürün Modeli': 'Barkod Yok', 
-                        'Raf No': 'Barkod Yok',
-                        'Not': 'Shopify - Barkod eksik'
-                    })
+                        row_data['Not'] = 'Eşleşmedi'
+                # Barkod yoksa Not kısmı boş kalacak
                 
-                # HER SİPARİŞİ EKLE!
+                # HER SİPARİŞİ MUTLAKA EKLE!
                 processed_orders.append(row_data)
         
         if not processed_orders:
