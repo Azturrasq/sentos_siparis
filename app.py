@@ -157,10 +157,10 @@ def process_data(orders_data, products_data):
                     'Ürün Rengi': '',
                     'Ürün Modeli': '',
                     'Raf No': '',
-                    'Not': 'Barkod yok'  # Varsayılan
+                    'Not': ''
                 }
                 
-                # BARKOD VARSA EŞLEŞTIRME DENEMESİ
+                # EĞER BARKOD VARSA EŞLEŞTIRME DENEMESİ
                 if barcode and barcode.strip():
                     product_info = local_df[local_df['Ürün Barkodu'].astype(str) == str(barcode)]
                     
@@ -174,8 +174,11 @@ def process_data(orders_data, products_data):
                     else:
                         # Barkod var ama eşleşmiyor
                         row_data['Not'] = 'Eşleşmedi'
+                else:
+                    # Barkod yok
+                    row_data['Not'] = 'Barkod yok'
                 
-                # HER SİPARİŞİ MUTLAKA EKLE - IF DIŞINDA!
+                # HER ÜRÜNÜ MUTLAKA EKLE - BARKOD OLSUN OLMASIN!
                 processed_orders.append(row_data)
         
         if not processed_orders:
