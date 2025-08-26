@@ -119,16 +119,7 @@ def load_local_data():
             st.error(f"Hata: '{file_path}' dosyası beklenen sütunları içermiyor. Lütfen sütun isimlerini kontrol edin: {required_columns}")
             return None
         
-        local_data_dict = {}
-        for index, row in df.iterrows():
-            barcode = str(row['Ürün Barkodu']).strip()
-            local_data_dict[barcode] = {
-                'ürün_kodu': str(row['Ürün Kodu']).strip(),
-                'renk': str(row['Ürün Rengi']).strip(),
-                'beden': str(row['Ürün Modeli']).strip(),
-                'raf_no': str(row['Raf No']).strip()
-            }
-        return local_data_dict
+        return df
     except Exception as e:
         st.error(f"Hata: '{file_path}' dosyasını okurken bir sorun oluştu: {e}")
         return None
@@ -136,72 +127,67 @@ def load_local_data():
 # --- 4. VERİ İŞLEME FONKSİYONLARI ---
 def process_data(orders_data, products_data):
     """
-    Sipariş verilerini yerel Excel dosyasından gelen ürün bilgileriyle birleştirir ve raporu oluşturur.
+    Sipariş verilerini işleyip rapor oluşturur.
     """
-    if not isinstance(orders_data, dict) or 'data' not in orders_data:
-        return None, "API'den sipariş verisi beklenmedik bir formatta geldi."
-    orders_list = orders_data.get('data', [])
-
-    local_products_dict = load_local_data()
-    if local_products_dict is None:
-        return None, "Yerel ürün verileri yüklenemedi."
-
-    all_order_lines = []
-    for order in orders_list:
-        for line in order.get('lines', []):
-            order_line_data = {
-                'siparis_no': order.get('order_code'),
-                'platform': order.get('source'),
-                'adet': line.get('quantity'),
-                'barkod': line.get('barcode'),
-                'siparis_tarihi': order.get('order_date')
-            }
-            
-            barcode = str(order_line_data.get('barkod')).strip()
-            local_info = local_products_dict.get(barcode, {})
-            
-            order_line_data['urun_kodu'] = local_info.get('ürün_kodu', '-')
-            order_line_data['renk'] = local_info.get('renk', '-')
-            order_line_data['beden'] = local_info.get('beden', '-')
-            order_line_data['raf_adresi'] = local_info.get('raf_no', '-')
-            
-            all_order_lines.append(order_line_data)
-    
-    if not all_order_lines:
-        return None, "Belirtilen tarih aralığında sipariş satırı bulunamadı."
+    try:
+        orders = orders_data.get('data', [])
+        if not orders:
+            return None, "API'den sipariş verisi alınamadı."
         
-    orders_df = pd.DataFrame(all_order_lines)
-
-    final_df = orders_df[[
-        'siparis_tarihi',
-        'siparis_no', 
-        'platform',
-        'urun_kodu',
-        'renk',
-        'beden',
-        'adet', 
-        'barkod', 
-        'raf_adresi'
-    ]].copy()
-    
-    final_df = final_df.rename(columns={
-        'siparis_tarihi': 'Sipariş Tarihi',
-        'siparis_no': 'Sipariş No',
-        'platform': 'Platform',
-        'urun_kodu': 'Model Kodu',
-        'renk': 'Renk',
-        'beden': 'Beden',
-        'adet': 'Adet',
-        'barkod': 'Barkod',
-        'raf_adresi': 'Raf Adresi',
-    })
-    
-    final_df.fillna('-', inplace=True)
-    final_df.replace('', '-', inplace=True)
-
-    final_df['Not'] = ''
-    
-    return final_df, None
+        # Yerel Excel dosyasından ürün bilgilerini yükle
+        local_df = load_local_data()
+        if local_df is None:
+            return None, "Yerel ürün verileri yüklenemedi."
+        
+        # Sipariş verilerini işle
+        processed_orders = []
+        
+        for order in orders:
+            order_id = order.get('id', 'Bilinmiyor')
+            platform = order.get('platform_name', 'Bilinmiyor')
+            
+            # Sipariş detaylarını al
+            order_items = order.get('order_items', [])
+            
+            for item in order_items:
+                barcode = item.get('barcode', '')
+                
+                # Yerel verilerden ürün bilgilerini bul
+                product_info = local_df[local_df['Ürün Barkodu'].astype(str) == str(barcode)]
+                
+                if not product_info.empty:
+                    row_data = {
+                        'Sipariş No': order_id,
+                        'Platform': platform,
+                        'Ürün Barkodu': barcode,
+                        'Ürün Kodu': product_info.iloc[0]['Ürün Kodu'],
+                        'Ürün Rengi': product_info.iloc[0]['Ürün Rengi'],
+                        'Ürün Modeli': product_info.iloc[0]['Ürün Modeli'],
+                        'Raf No': product_info.iloc[0]['Raf No'],
+                        'Adet': item.get('quantity', 1),
+                        'Not': ''
+                    }
+                    processed_orders.append(row_data)
+        
+        if not processed_orders:
+            return None, "İşlenebilir sipariş bulunamadı."
+        
+        # DataFrame oluştur
+        df = pd.DataFrame(processed_orders)
+        
+        # Nitelik sütununu hesapla (sipariş numarasına göre)
+        order_counts = df['Sipariş No'].value_counts()
+        df['Nitelik'] = df['Sipariş No'].map(lambda x: 'Çoklu' if order_counts[x] > 1 else 'Tekli')
+        
+        # Sütun sırasını düzenle - Nitelik'i Sipariş No ve Platform arasına koy
+        columns_order = ['Sipariş No', 'Nitelik', 'Platform', 'Ürün Barkodu', 
+                        'Ürün Kodu', 'Ürün Rengi', 'Ürün Modeli', 'Raf No', 'Adet', 'Not']
+        df = df[columns_order]
+        
+        return df, None
+        
+    except Exception as e:
+        return None, f"Veri işleme hatası: {str(e)}"
 
 def load_printed_orders():
     """Daha önce yazdırılmış siparişleri session state'den yükler."""
