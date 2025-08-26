@@ -186,17 +186,18 @@ def process_data(orders_data, products_data):
         st.info(f"Toplam {total_items} ürün, {matched_items} tanesi Excel'de eşleşti.")
         
         if unmatched_barcodes:
-            st.warning(f"Eşleşmeyen barkodlar: {list(unmatched_barcodes)}")
+            st.warning(f"Eşleşmeyen barkodlar (ilk 5): {list(unmatched_barcodes)[:5]}")
             
-        # DEBUG: Excel'deki ilk 10 barkodu göster
-        st.info(f"Excel'deki ilk 10 barkod: {local_df['Ürün Barkodu'].head(10).tolist()}")
+        # DEBUG: Excel'deki ilk 5 barkodu göster
+        excel_barcodes = local_df['Ürün Barkodu'].head(5).tolist()
+        st.info(f"Excel'deki ilk 5 barkod: {excel_barcodes}")
         
-        # DEBUG: API'den gelen ilk 10 barkodu göster  
+        # DEBUG: API'den gelen ilk 5 barkodu göster  
         api_barcodes = []
-        for order in orders[:3]:  # İlk 3 sipariş
-            for item in order.get('order_items', []):
+        for order in orders[:2]:  # İlk 2 sipariş
+            for item in order.get('order_items', [])[:3]:  # Her siparişteki ilk 3 ürün
                 api_barcodes.append(item.get('barcode', ''))
-        st.info(f"API'den gelen ilk barkodlar: {api_barcodes[:10]}")
+        st.info(f"API'den gelen ilk barkodlar: {api_barcodes}")
         
         if not processed_orders:
             return None, f"İşlenebilir sipariş bulunamadı. {total_items} ürün API'den geldi, {matched_items} tanesi Excel'de eşleşti."
