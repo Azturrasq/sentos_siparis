@@ -59,11 +59,11 @@ def get_sentos_data(endpoint, params=None):
         response = requests.get(url, params=params, auth=(API_KEY, API_SECRET))
         response.raise_for_status()
         return response.json()
-    except requests.exceptions.RequestException as e:
-        st.error(f"API'ye bağlanırken bir hata oluştu: {e}")
-        return None
     except requests.exceptions.HTTPError as e:
         st.error(f"API'den hata yanıtı geldi: {e.response.status_code} - {e.response.text}")
+        return None
+    except requests.exceptions.RequestException as e:
+        st.error(f"API'ye bağlanırken bir hata oluştu: {e}")
         return None
 
 def get_orders(start_date, end_date):
@@ -200,10 +200,10 @@ def save_printed_orders(orders):
 def update_printed_orders_state():
     """Raporu indirdikten sonra, güncel siparişleri oturum durumuna kaydeder."""
     if 'current_orders' in st.session_state:
+        current_orders = st.session_state.current_orders
         if 'printed_orders_persistent' not in st.session_state:
             st.session_state.printed_orders_persistent = set()
-        st.session_state.printed_orders_persistent.update(st.session_state.current_orders)
-        st.session_state.printed_orders = st.session_state.printed_orders_persistent
+        st.session_state.printed_orders_persistent.update(current_orders)
 
 # --- 5. STREAMLIT ARAYÜZÜ (UI) ---
 st.title("Sentos Sipariş ve Ürün Raporlama Aracı")
@@ -226,14 +226,8 @@ with col2:
 
 # Buton
 if st.button("Siparişleri Getir ve Raporla"):
-    # Debug bilgileri
-    st.write(f"API_BASE_URL: {API_BASE_URL}")
-    st.write(f"API_KEY: {'✓' if API_KEY else '✗'}")
-    st.write(f"API_SECRET: {'✓' if API_SECRET else '✗'}")
-    
     if not API_KEY or not API_SECRET or not API_BASE_URL:
         st.error("API bilgileri eksik. Lütfen Streamlit Cloud secrets ayarlarını kontrol edin.")
-        st.info("Secrets şu formatta olmalı: API_BASE_URL, API_KEY, API_SECRET")
     else:
         with st.spinner("Verileriniz yükleniyor, lütfen bekleyin..."):
             orders_data = get_orders(start_date, end_date)
@@ -246,10 +240,13 @@ if st.button("Siparişleri Getir ve Raporla"):
                 elif final_report_df is not None:
                     printed_orders_set = load_printed_orders()
                     
-                    st.session_state.current_orders = set(final_report_df['Sipariş No'].unique())
+                    # Set işlemi düzeltildi
+                    current_order_set = set(final_report_df['Sipariş No'].unique())
+                    st.session_state.current_orders = current_order_set
 
-                    for index, row in final_report_df.iterrows():
-                        order_id = row['Sipariş No']
+                    # DataFrame'i güvenli şekilde güncelle
+                    for index in final_report_df.index:
+                        order_id = final_report_df.loc[index, 'Sipariş No']
                         if order_id in printed_orders_set:
                             final_report_df.loc[index, 'Not'] = 'Daha önce yazdırıldı.'
                         
