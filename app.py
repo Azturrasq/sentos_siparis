@@ -7,15 +7,42 @@ import os
 import json
 from datetime import date, datetime, timezone
 
-# --- API BİLGİLERİ ---
-# SADECE secrets'tan oku
+# --- 2. API BİLGİLERİ ---
+# Hem yerel hem cloud'da çalışacak şekilde
 try:
+    # Önce Streamlit Cloud secrets'ı dene
     API_BASE_URL = st.secrets["API_BASE_URL"]
     API_KEY = st.secrets["API_KEY"] 
     API_SECRET = st.secrets["API_SECRET"]
-except KeyError:
-    st.error("API bilgileri Streamlit secrets'ta bulunamadı!")
-    st.stop()
+    st.sidebar.success("✅ API bilgileri Streamlit secrets'tan yüklendi")
+except (KeyError, FileNotFoundError):
+    # Yerel çalıştırma için environment variables
+    API_BASE_URL = os.getenv("API_BASE_URL")
+    API_KEY = os.getenv("API_KEY")
+    API_SECRET = os.getenv("API_SECRET")
+    
+    if API_BASE_URL and API_KEY and API_SECRET:
+        st.sidebar.info("ℹ️ API bilgileri environment variables'tan yüklendi")
+    else:
+        st.sidebar.error("❌ API bilgileri bulunamadı")
+        st.error("API bilgileri eksik!")
+        st.info("""
+        **Yerel çalıştırma için:**
+        1. `.streamlit/secrets.toml` dosyası oluşturun:
+        ```
+        API_BASE_URL = "https://stildiva.sentos.com.tr/api"
+        API_KEY = "your_key"
+        API_SECRET = "your_secret"
+        ```
+        
+        **Veya environment variables ayarlayın:**
+        ```bash
+        export API_BASE_URL="https://stildiva.sentos.com.tr/api"
+        export API_KEY="your_key"
+        export API_SECRET="your_secret"
+        ```
+        """)
+        st.stop()
 
 # --- 3. HELPER FONKSİYONLARI ---
 def get_sentos_data(endpoint, params=None):
