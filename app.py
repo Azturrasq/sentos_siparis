@@ -9,23 +9,21 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 # --- 2. API BİLGİLERİ ---
-# Hem yerel hem cloud'da çalışacak şekilde
+# Hem yerel hem cloud'da çalışacak şekilde - SIDEBAR MESAJLARI KALDIRILDI
 try:
     # Önce Streamlit Cloud secrets'ı dene
     API_BASE_URL = st.secrets["API_BASE_URL"]
     API_KEY = st.secrets["API_KEY"] 
     API_SECRET = st.secrets["API_SECRET"]
-    st.sidebar.success("✅ API bilgileri Streamlit secrets'tan yüklendi")
+    # st.sidebar.success("✅ API bilgileri Streamlit secrets'tan yüklendi")  <- SİL!
 except (KeyError, FileNotFoundError):
     # Yerel çalıştırma için environment variables
     API_BASE_URL = os.getenv("API_BASE_URL")
     API_KEY = os.getenv("API_KEY")
     API_SECRET = os.getenv("API_SECRET")
     
-    if API_BASE_URL and API_KEY and API_SECRET:
-        st.sidebar.info("ℹ️ API bilgileri environment variables'tan yüklendi")
-    else:
-        st.sidebar.error("❌ API bilgileri bulunamadı")
+    if not (API_BASE_URL and API_KEY and API_SECRET):
+        # st.sidebar.error("❌ API bilgileri bulunamadı")  <- SİL!
         st.error("API bilgileri eksik!")
         st.info("""
         **Yerel çalıştırma için:**
@@ -34,13 +32,6 @@ except (KeyError, FileNotFoundError):
         API_BASE_URL = "https://stildiva.sentos.com.tr/api"
         API_KEY = "your_key"
         API_SECRET = "your_secret"
-        ```
-        
-        **Veya environment variables ayarlayın:**
-        ```bash
-        export API_BASE_URL="https://stildiva.sentos.com.tr/api"
-        export API_KEY="your_key"
-        export API_SECRET="your_secret"
         ```
         """)
         st.stop()
@@ -237,23 +228,26 @@ def save_printed_orders_to_persistent():
 
 # --- 5. STREAMLIT ARAYÜZÜ (UI) ---
 
-# Sidebar success mesajını kaldır - bunun yerine main area'da gösterilecek
-
+# SIDEBAR'I GIZLE ve BAŞLIK BOYUTUNU KÜÇÜLT
 st.markdown("""
 <style>
-    /* Sidebar'ı gizle */
-    .css-1d391kg, .css-1cypcdb {
+    /* Sidebar tamamen gizle */
+    .css-1d391kg, 
+    .css-1cypcdb, 
+    section[data-testid="stSidebar"] {
         display: none !important;
     }
     
-    /* Ana içeriği genişlet */
-    .css-18e3th9 {
+    /* Ana içerik alanını genişlet */
+    .main .block-container {
         padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        max-width: none !important;
     }
     
     /* Başlık fontunu küçült */
     .main-header {
-        font-size: 1.8rem !important;
+        font-size: 1.6rem !important;
         font-weight: 600;
         margin-bottom: 1rem;
         line-height: 1.2 !important;
@@ -261,7 +255,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Küçük başlık
+# Küçük başlık - TEK SATIRDA
 st.markdown('<h1 class="main-header">Sentos Sipariş ve Ürün Raporlama Aracı</h1>', unsafe_allow_html=True)
 
 # Initialize session state - JSON dosyasından yükle
@@ -376,3 +370,12 @@ if 'final_report' in st.session_state:
             on_click=save_printed_orders_to_persistent,
             help="Bu butona basınca TÜM siparişler 'yazdırıldı' olarak işaretlenir"
         )
+
+# Debug bilgileri (isteğe bağlı)
+if st.checkbox("🔍 Debug Bilgilerini Göster"):
+    st.write("**Yazdırılmış Siparişler:**")
+    printed = st.session_state.get('printed_orders_persistent', {})
+    if printed:
+        st.json(printed)
+    else:
+        st.write("Henüz yazdırılmış sipariş yok")
