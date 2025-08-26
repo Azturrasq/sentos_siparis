@@ -134,10 +134,6 @@ def process_data(orders_data, products_data):
         if not orders:
             return None, "API'den sipariş verisi alınamadı."
         
-        # DEBUG: İlk siparişin yapısını göster
-        if orders:
-            st.json(orders[0])  # İlk siparişin FULL yapısını göster
-        
         # Yerel Excel dosyasından ürün bilgilerini yükle
         local_df = load_local_data()
         if local_df is None:
@@ -148,35 +144,13 @@ def process_data(orders_data, products_data):
         
         for order in orders:
             order_id = order.get('id', 'Bilinmiyor')
-            platform = order.get('platform_name', 'Bilinmiyor')
+            platform = order.get('source', order.get('platform_name', 'Bilinmiyor'))  # 'source' kullan
             
-            # FARKLI İHTİMALLERİ KONTROL ET
-            order_items = []
-            
-            # İhtimal 1: order_items
-            if 'order_items' in order and order['order_items']:
-                order_items = order['order_items']
-            # İhtimal 2: items  
-            elif 'items' in order and order['items']:
-                order_items = order['items']
-            # İhtimal 3: products
-            elif 'products' in order and order['products']:
-                order_items = order['products']
-            # İhtimal 4: Direkt order içinde
-            elif 'barcode' in order:
-                order_items = [order]  # Siparişin kendisi ürün
-            
-            st.write(f"Sipariş {order_id}: {len(order_items)} ürün bulundu")
+            # YENİ API YAPISI: 'lines' kullan
+            order_items = order.get('lines', [])  # lines array'ini kullan
             
             for item in order_items:
-                # Farklı barcode field'ları dene
-                barcode = (
-                    item.get('barcode', '') or 
-                    item.get('product_barcode', '') or 
-                    item.get('sku', '') or
-                    item.get('code', '') or
-                    str(item.get('product_id', ''))
-                )
+                barcode = item.get('barcode', '')
                 
                 if barcode:
                     # Yerel verilerden ürün bilgilerini bul
