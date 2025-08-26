@@ -143,11 +143,12 @@ def process_data(orders_data, products_data):
         processed_orders = []
         
         for order in orders:
-            order_id = order.get('id', 'Bilinmiyor')
-            platform = order.get('source', order.get('platform_name', 'Bilinmiyor'))  # 'source' kullan
+            # ÖNEMLİ DEĞİŞİKLİK: Platform'un sipariş numarasını kullan!
+            order_id = order.get('order_id') or order.get('order_code') or order.get('id', 'Bilinmiyor')
+            platform = order.get('source', order.get('platform_name', 'Bilinmiyor'))
             
             # YENİ API YAPISI: 'lines' kullan
-            order_items = order.get('lines', [])  # lines array'ini kullan
+            order_items = order.get('lines', [])
             
             for item in order_items:
                 barcode = item.get('barcode', '')
@@ -158,7 +159,7 @@ def process_data(orders_data, products_data):
                     
                     if not product_info.empty:
                         row_data = {
-                            'Sipariş No': order_id,
+                            'Sipariş No': order_id,  # Artık gerçek sipariş numarası!
                             'Platform': platform,
                             'Ürün Barkodu': barcode,
                             'Ürün Kodu': product_info.iloc[0]['Ürün Kodu'],
