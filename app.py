@@ -134,82 +134,79 @@ def process_data(orders_data, products_data):
         if not orders:
             return None, "API'den sipariş verisi alınamadı."
         
-        # DEBUG: Kaç sipariş geldi?
-        st.info(f"API'den {len(orders)} adet sipariş geldi.")
+        # DEBUG: İlk siparişin yapısını göster
+        if orders:
+            st.json(orders[0])  # İlk siparişin FULL yapısını göster
         
         # Yerel Excel dosyasından ürün bilgilerini yükle
         local_df = load_local_data()
         if local_df is None:
             return None, "Yerel ürün verileri yüklenemedi."
-            
-        # DEBUG: Excel'de kaç ürün var?
-        st.info(f"Excel dosyasında {len(local_df)} adet ürün bulundu.")
         
         # Sipariş verilerini işle
         processed_orders = []
-        total_items = 0
-        matched_items = 0
-        unmatched_barcodes = set()
         
         for order in orders:
             order_id = order.get('id', 'Bilinmiyor')
             platform = order.get('platform_name', 'Bilinmiyor')
             
-            # Sipariş detaylarını al
-            order_items = order.get('order_items', [])
-            total_items += len(order_items)
+            # FARKLI İHTİMALLERİ KONTROL ET
+            order_items = []
+            
+            # İhtimal 1: order_items
+            if 'order_items' in order and order['order_items']:
+                order_items = order['order_items']
+            # İhtimal 2: items  
+            elif 'items' in order and order['items']:
+                order_items = order['items']
+            # İhtimal 3: products
+            elif 'products' in order and order['products']:
+                order_items = order['products']
+            # İhtimal 4: Direkt order içinde
+            elif 'barcode' in order:
+                order_items = [order]  # Siparişin kendisi ürün
+            
+            st.write(f"Sipariş {order_id}: {len(order_items)} ürün bulundu")
             
             for item in order_items:
-                barcode = item.get('barcode', '')
+                # Farklı barcode field'ları dene
+                barcode = (
+                    item.get('barcode', '') or 
+                    item.get('product_barcode', '') or 
+                    item.get('sku', '') or
+                    item.get('code', '') or
+                    str(item.get('product_id', ''))
+                )
                 
-                # Yerel verilerden ürün bilgilerini bul
-                product_info = local_df[local_df['Ürün Barkodu'].astype(str) == str(barcode)]
-                
-                if not product_info.empty:
-                    matched_items += 1
-                    row_data = {
-                        'Sipariş No': order_id,
-                        'Platform': platform,
-                        'Ürün Barkodu': barcode,
-                        'Ürün Kodu': product_info.iloc[0]['Ürün Kodu'],
-                        'Ürün Rengi': product_info.iloc[0]['Ürün Rengi'],
-                        'Ürün Modeli': product_info.iloc[0]['Ürün Modeli'],
-                        'Raf No': product_info.iloc[0]['Raf No'],
-                        'Adet': item.get('quantity', 1),
-                        'Not': ''
-                    }
-                    processed_orders.append(row_data)
-                else:
-                    unmatched_barcodes.add(barcode)
-        
-        # DEBUG: Eşleşme durumu ve eşleşmeyen barkodlar
-        st.info(f"Toplam {total_items} ürün, {matched_items} tanesi Excel'de eşleşti.")
-        
-        if unmatched_barcodes:
-            st.warning(f"Eşleşmeyen barkodlar (ilk 5): {list(unmatched_barcodes)[:5]}")
-            
-        # DEBUG: Excel'deki ilk 5 barkodu göster
-        excel_barcodes = local_df['Ürün Barkodu'].head(5).tolist()
-        st.info(f"Excel'deki ilk 5 barkod: {excel_barcodes}")
-        
-        # DEBUG: API'den gelen ilk 5 barkodu göster  
-        api_barcodes = []
-        for order in orders[:2]:  # İlk 2 sipariş
-            for item in order.get('order_items', [])[:3]:  # Her siparişteki ilk 3 ürün
-                api_barcodes.append(item.get('barcode', ''))
-        st.info(f"API'den gelen ilk barkodlar: {api_barcodes}")
+                if barcode:
+                    # Yerel verilerden ürün bilgilerini bul
+                    product_info = local_df[local_df['Ürün Barkodu'].astype(str) == str(barcode)]
+                    
+                    if not product_info.empty:
+                        row_data = {
+                            'Sipariş No': order_id,
+                            'Platform': platform,
+                            'Ürün Barkodu': barcode,
+                            'Ürün Kodu': product_info.iloc[0]['Ürün Kodu'],
+                            'Ürün Rengi': product_info.iloc[0]['Ürün Rengi'],
+                            'Ürün Modeli': product_info.iloc[0]['Ürün Modeli'],
+                            'Raf No': product_info.iloc[0]['Raf No'],
+                            'Adet': item.get('quantity', 1),
+                            'Not': ''
+                        }
+                        processed_orders.append(row_data)
         
         if not processed_orders:
-            return None, f"İşlenebilir sipariş bulunamadı. {total_items} ürün API'den geldi, {matched_items} tanesi Excel'de eşleşti."
+            return None, f"İşlenebilir sipariş bulunamadı."
         
         # DataFrame oluştur
         df = pd.DataFrame(processed_orders)
         
-        # Nitelik sütununu hesapla (sipariş numarasına göre)
+        # Nitelik sütununu hesapla
         order_counts = df['Sipariş No'].value_counts()
         df['Nitelik'] = df['Sipariş No'].map(lambda x: 'Çoklu' if order_counts[x] > 1 else 'Tekli')
         
-        # Sütun sırasını düzenle - Nitelik'i Sipariş No ve Platform arasına koy
+        # Sütun sırası
         columns_order = ['Sipariş No', 'Nitelik', 'Platform', 'Ürün Barkodu', 
                         'Ürün Kodu', 'Ürün Rengi', 'Ürün Modeli', 'Raf No', 'Adet', 'Not']
         df = df[columns_order]
