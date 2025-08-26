@@ -282,6 +282,9 @@ if st.button("Siparişleri Getir ve Raporla"):
                             print_date = printed_orders_dict[order_id]
                             final_report_df.loc[index, 'Not'] = f"{print_date}'te yazdırıldı"
                     
+                    # ÖNEMLİ: Raporu session state'te sakla
+                    st.session_state.final_report = final_report_df
+                    
                     # Rapor başarı mesajı
                     st.success(f"Başarılı! {len(final_report_df)} adet sipariş satırı raporlandı.")
                     
@@ -289,50 +292,55 @@ if st.button("Siparişleri Getir ve Raporla"):
                     already_printed = len([x for x in current_order_set if str(x) in printed_orders_dict])
                     if already_printed > 0:
                         st.info(f"ℹ️ {already_printed} sipariş daha önce yazdırılmış (NOT sütununda tarihi ile birlikte gösteriliyor)")
-                    
-                    # SİPARİŞ ARAMA BARI
-                    st.subheader("🔍 Sipariş Arama")
-                    search_order = st.text_input("Sipariş numarası girin:", placeholder="Örn: 10457337072")
-                    
-                    # Filtrelenmiş veriyi göster
-                    display_df = final_report_df.copy()
-                    
-                    if search_order:
-                        # Arama yapılmışsa filtrele
-                        filtered_df = display_df[display_df['Sipariş No'].astype(str).str.contains(search_order, na=False, case=False)]
-                        if not filtered_df.empty:
-                            st.success(f"🎯 '{search_order}' için {len(filtered_df)} sonuç bulundu:")
-                            display_df = filtered_df
-                        else:
-                            st.warning(f"❌ '{search_order}' için sonuç bulunamadı.")
-                            display_df = pd.DataFrame()  # Boş dataframe
-                    
-                    # RAPORU TAM GENİŞLİKTE GÖSTER
-                    if not display_df.empty:
-                        st.subheader("Oluşturulan Rapor")
-                        st.dataframe(display_df, use_container_width=True)  # TAM GENİŞLİK!
-                        
-                        # İstatistikler
-                        if search_order:
-                            unique_orders = display_df['Sipariş No'].nunique()
-                            st.info(f"📊 Görüntülenen: {unique_orders} sipariş, {len(display_df)} ürün")
-                        
-                        # Excel indirme butonu - TÜM VERİYİ İNDİR
-                        excel_buffer = io.BytesIO()
-                        final_report_df.to_excel(excel_buffer, index=False, engine='openpyxl')
-                        
-                        st.download_button(
-                            label="📊 Tüm Raporu XLSX Olarak İndir",
-                            data=excel_buffer.getvalue(),
-                            file_name=f"sentos_rapor_{start_date}_{end_date}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            on_click=save_printed_orders_to_persistent,
-                            help="Bu butona basınca TÜM siparişler 'yazdırıldı' olarak işaretlenir"
-                        )
                 else:
                     st.info("Belirtilen tarih aralığında sipariş bulunamadı.")
             else:
                 st.info("API'den veri çekilemedi. Lütfen bağlantı bilgilerinizi kontrol edin.")
+
+# RAPOR GÖSTERME KISMI - SESSION STATE'TEN
+if 'final_report' in st.session_state:
+    # SİPARİŞ ARAMA BARI
+    st.subheader("🔍 Sipariş Arama")
+    search_order = st.text_input("Sipariş numarası girin:", placeholder="Örn: 10457337072", key="search_input")
+    
+    # Session state'ten raporu al
+    final_report_df = st.session_state.final_report
+    
+    # Filtrelenmiş veriyi göster
+    display_df = final_report_df.copy()
+    
+    if search_order:
+        # Arama yapılmışsa filtrele
+        filtered_df = display_df[display_df['Sipariş No'].astype(str).str.contains(search_order, na=False, case=False)]
+        if not filtered_df.empty:
+            st.success(f"🎯 '{search_order}' için {len(filtered_df)} sonuç bulundu:")
+            display_df = filtered_df
+        else:
+            st.warning(f"❌ '{search_order}' için sonuç bulunamadı.")
+            display_df = pd.DataFrame()  # Boş dataframe
+    
+    # RAPORU TAM GENİŞLİKTE GÖSTER
+    if not display_df.empty:
+        st.subheader("Oluşturulan Rapor")
+        st.dataframe(display_df, use_container_width=True)  # TAM GENİŞLİK!
+        
+        # İstatistikler
+        if search_order:
+            unique_orders = display_df['Sipariş No'].nunique()
+            st.info(f"📊 Görüntülenen: {unique_orders} sipariş, {len(display_df)} ürün")
+        
+        # Excel indirme butonu - TÜM VERİYİ İNDİR
+        excel_buffer = io.BytesIO()
+        final_report_df.to_excel(excel_buffer, index=False, engine='openpyxl')
+        
+        st.download_button(
+            label="📊 Tüm Raporu XLSX Olarak İndir",
+            data=excel_buffer.getvalue(),
+            file_name=f"sentos_rapor_{start_date}_{end_date}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            on_click=save_printed_orders_to_persistent,
+            help="Bu butona basınca TÜM siparişler 'yazdırıldı' olarak işaretlenir"
+        )
 
 # Debug bilgileri (isteğe bağlı)
 if st.checkbox("🔍 Debug Bilgilerini Göster"):
