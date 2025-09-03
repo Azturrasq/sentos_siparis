@@ -378,29 +378,11 @@ if st.button("Siparişleri Getir ve Raporla"):
                     current_order_set = set(final_report_df['Sipariş No'].unique())
                     st.session_state.current_orders = current_order_set
 
-                    # NOT sütununu güncelle - tarih bilgisiyle (GÜVENLİ)
-                    for index in final_report_df.index:
-                        order_id = str(final_report_df.loc[index, 'Sipariş No'])
-                        if order_id in printed_orders_dict:
-                            try:
-                                print_date = str(printed_orders_dict[order_id])
-                                if print_date and print_date != 'None':
-                                    final_report_df.loc[index, 'Not'] = f"{print_date}'te yazdırıldı"
-                                else:
-                                    final_report_df.loc[index, 'Not'] = "Daha önce yazdırıldı"
-                            except:
-                                final_report_df.loc[index, 'Not'] = "Daha önce yazdırıldı"
-                    
                     # ÖNEMLİ: Raporu session state'te sakla
                     st.session_state.final_report = final_report_df
                     
                     # Rapor başarı mesajı - ORTA ALANDA
                     st.success(f"✅ Başarılı! {len(final_report_df)} adet sipariş satırı raporlandı.")
-                    
-                    # Yazdırılmış sipariş bilgisi
-                    already_printed = len([x for x in current_order_set if str(x) in printed_orders_dict])
-                    if already_printed > 0:
-                        st.info(f"ℹ️ {already_printed} sipariş daha önce yazdırılmış (NOT sütununda tarihi ile birlikte gösteriliyor)")
                 else:
                     st.info("ℹ️ Belirtilen tarih aralığında sipariş bulunamadı.")
             else:
