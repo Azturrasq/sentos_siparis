@@ -134,6 +134,17 @@ def process_data(orders_data, products_data):
         # Yazdırılmış siparişleri yükle
         printed_orders_dict = load_printed_orders()
         
+        # SİPARİŞ DURUMU KODLARI - İSİM ÇEVRİMİ
+        status_map = {
+            1: "Onay Bekliyor",
+            2: "Onaylandı", 
+            3: "Tedarik Sürecinde",
+            4: "Hazırlanıyor",
+            5: "Kargoya Verildi",
+            6: "İptal Edildi",
+            99: "Teslim Edildi"
+        }
+        
         # Sipariş verilerini işle
         processed_orders = []
         
@@ -142,8 +153,13 @@ def process_data(orders_data, products_data):
             order_id = order.get('order_code') or order.get('order_id') or order.get('id', 'Bilinmiyor')
             platform = order.get('source', order.get('platform_name', 'Bilinmiyor'))
             
-            # YENİ: Sipariş durumu al
-            order_status = order.get('status', order.get('order_status', 'Bilinmiyor'))
+            # YENİ: Sipariş durumu al ve isme çevir
+            order_status_code = order.get('status', order.get('order_status', 1))
+            try:
+                order_status_code = int(order_status_code)
+                order_status_name = status_map.get(order_status_code, f"Bilinmeyen ({order_status_code})")
+            except:
+                order_status_name = "Bilinmeyen"
             
             # YENİ API YAPISI: 'lines' kullan
             order_items = order.get('lines', [])
@@ -164,16 +180,22 @@ def process_data(orders_data, products_data):
                     'Ürün Modeli': '',
                     'Raf No': '',
                     'Not': '',
-                    'Sipariş Detay': '',  # YENİ SÜTUN 1
-                    'Sipariş Durumu': order_status  # YENİ SÜTUN 2
+                    'Sipariş Detay': '',
+                    'Sipariş Durumu': order_status_name  # İSİM OLARAK
                 }
                 
-                # SİPARİŞ DETAY KONTROLÜ - Daha önce yazdırılmış mı?
-                order_id_str = str(order_id)
-                if order_id_str in printed_orders_dict:
-                    print_date = printed_orders_dict[order_id_str]
-                    row_data['Sipariş Detay'] = "Bu Sipariş Daha Önce Excel'e Aktarıldı"
-                else:
+                # SİPARİŞ DETAY KONTROLÜ - DAHA DİKKATLİ
+                order_id_str = str(order_id).strip()
+                
+                # JSON'daki tüm anahtarları kontrol et
+                found_in_printed = False
+                for printed_key, printed_date in printed_orders_dict.items():
+                    if str(printed_key).strip() == order_id_str:
+                        row_data['Sipariş Detay'] = f"Bu Sipariş Daha Önce Excel'e Aktarıldı ({printed_date})"
+                        found_in_printed = True
+                        break
+                
+                if not found_in_printed:
                     row_data['Sipariş Detay'] = "-"
                 
                 # EĞER BARKOD VARSA EŞLEŞTIRME DENEMESİ
@@ -194,7 +216,7 @@ def process_data(orders_data, products_data):
                     # Barkod yok
                     row_data['Not'] = 'Barkod yok'
                 
-                # HER ÜRÜNÜ MUTLAKA EKLE - BARKOD OLSUN OLMASIN!
+                # HER ÜRÜNÜ MUTLAKA EKLE
                 processed_orders.append(row_data)
         
         if not processed_orders:
@@ -207,7 +229,7 @@ def process_data(orders_data, products_data):
         order_counts = df['Sipariş No'].value_counts()
         df['Nitelik'] = df['Sipariş No'].map(lambda x: 'Çoklu' if order_counts[x] > 1 else 'Tekli')
         
-        # YENİ SÜTUN SIRASI - Sipariş Detay ve Sipariş Durumu eklendi
+        # SÜTUN SIRASI
         columns_order = ['Sipariş No', 'Nitelik', 'Platform', 'Ürün Barkodu', 
                         'Ürün Adı', 'Ürün Kodu', 'Ürün Rengi', 'Ürün Modeli', 'Raf No', 
                         'Adet', 'Not', 'Sipariş Detay', 'Sipariş Durumu']
