@@ -5,7 +5,7 @@ import requests
 import io
 import os
 import json
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
 
 # --- 2. API BİLGİLERİ ---
@@ -147,8 +147,9 @@ def process_data(orders_data, products_data):
             99: "Teslim Edildi"
         }
         
-        # Şu anki zaman - rapor çekme zamanı
-        now = datetime.now()
+        # Şu anki zaman - rapor çekme zamanı (TÜRKİYE SAATİ)
+        turkey_tz = timezone(timedelta(hours=3))
+        now = datetime.now(turkey_tz)
         
         # Sipariş verilerini işle
         processed_orders = []
@@ -188,6 +189,9 @@ def process_data(orders_data, products_data):
                         
                         # DÜZELTME: Termin = sipariş zamanı + TAM 24 SAAT
                         termin = order_datetime + pd.Timedelta(hours=24)
+                        
+                        # DEBUG: Termin zamanını göster
+                        st.write(f"DEBUG - Sipariş: {siparis_tarihi}, Termin: {termin.strftime('%d.%m.%Y %H:%M')}")
                         
                         # Kalan süre hesapla
                         kalan_saniye = (termin - now).total_seconds()
