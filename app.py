@@ -134,7 +134,7 @@ def process_data(orders_data, products_data):
         # Yazdırılmış siparişleri yükle - GÜVENLİ ŞEKİLDE
         printed_orders_dict = load_printed_orders()
         if not isinstance(printed_orders_dict, dict):
-            printed_orders_dict = {}  # Eğer dict değilse boş dict yap
+            printed_orders_dict = {}
         
         # SİPARİŞ DURUMU KODLARI - İSİM ÇEVRİMİ
         status_map = {
@@ -146,6 +146,9 @@ def process_data(orders_data, products_data):
             6: "İptal Edildi",
             99: "Teslim Edildi"
         }
+        
+        # Şu anki zaman - rapor çekme zamanı
+        now = datetime.now()
         
         # Sipariş verilerini işle
         processed_orders = []
@@ -163,6 +166,50 @@ def process_data(orders_data, products_data):
             except:
                 order_status_name = "Bilinmeyen"
             
+            # YENİ: Sipariş tarihi al
+            order_date_str = order.get('order_date', order.get('created_at', ''))
+            siparis_tarihi = "Bilinmiyor"
+            termin_suresi = "Hesaplanamadı"
+            
+            if order_date_str:
+                try:
+                    # Farklı tarih formatlarını dene
+                    order_datetime = None
+                    for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d']:
+                        try:
+                            order_datetime = datetime.strptime(order_date_str, fmt)
+                            break
+                        except ValueError:
+                            continue
+                    
+                    if order_datetime:
+                        # Sipariş tarihi formatla
+                        siparis_tarihi = order_datetime.strftime("%d.%m.%Y %H:%M")
+                        
+                        # Termin hesapla (sipariş tarihi + 23:59)
+                        termin = order_datetime.replace(hour=23, minute=59, second=59) + pd.Timedelta(days=1)
+                        termin = termin.replace(hour=0, minute=0, second=0) - pd.Timedelta(minutes=1)  # 23:59
+                        
+                        # Kalan süre hesapla
+                        kalan_dakika = int((termin - now).total_seconds() / 60)
+                        
+                        if kalan_dakika > 0:
+                            saat = kalan_dakika // 60
+                            dakika = kalan_dakika % 60
+                            termin_suresi = f"{saat:02d}:{dakika:02d}"
+                        elif kalan_dakika == 0:
+                            termin_suresi = "00:00"
+                        else:
+                            # Negatif - süre dolmuş
+                            gecen_dakika = abs(kalan_dakika)
+                            saat = gecen_dakika // 60
+                            dakika = gecen_dakika % 60
+                            termin_suresi = f"Süre Doldu ({saat:02d}:{dakika:02d} geç)"
+                            
+                except Exception as e:
+                    siparis_tarihi = order_date_str
+                    termin_suresi = "Hata"
+            
             # YENİ API YAPISI: 'lines' kullan
             order_items = order.get('lines', [])
             
@@ -173,6 +220,7 @@ def process_data(orders_data, products_data):
                 # TEMEL SİPARİŞ BİLGİLERİ - HER ZAMAN OLUŞTUR
                 row_data = {
                     'Sipariş No': order_id,
+                    'Paket İçeriği': '',  # DEĞİŞTİRİLDİ: Nitelik → Paket İçeriği
                     'Platform': platform,
                     'Ürün Barkodu': barcode if barcode else 'N/A',
                     'Ürün Adı': product_name,
@@ -183,7 +231,9 @@ def process_data(orders_data, products_data):
                     'Raf No': '',
                     'Not': '',
                     'Sipariş Detay': '',
-                    'Sipariş Durumu': order_status_name  # İSİM OLARAK
+                    'Sipariş Durumu': order_status_name,
+                    'Sipariş Tarihi': siparis_tarihi,  # YENİ SÜTUN
+                    'Kalan Süre': termin_suresi  # YENİ SÜTUN
                 }
                 
                 # SİPARİŞ DETAY KONTROLÜ - GÜVENLİ
@@ -199,7 +249,6 @@ def process_data(orders_data, products_data):
                                 found_in_printed = True
                                 break
                 except Exception as e:
-                    # Hata varsa boş bırak
                     pass
                 
                 if not found_in_printed:
@@ -241,15 +290,19 @@ def process_data(orders_data, products_data):
         # DataFrame oluştur
         df = pd.DataFrame(processed_orders)
         
-        # Nitelik sütununu hesapla
+        # Paket İçeriği sütununu hesapla (eski Nitelik)
         order_counts = df['Sipariş No'].value_counts()
-        df['Nitelik'] = df['Sipariş No'].map(lambda x: 'Çoklu' if order_counts[x] > 1 else 'Tekli')
+        df['Paket İçeriği'] = df['Sipariş No'].map(lambda x: 'Çoklu' if order_counts[x] > 1 else 'Tekli')
         
-        # SÜTUN SIRASI
-        columns_order = ['Sipariş No', 'Nitelik', 'Platform', 'Ürün Barkodu', 
+        # YENİ SÜTUN SIRASI - 2 yeni sütun eklendi
+        columns_order = ['Sipariş No', 'Paket İçeriği', 'Platform', 'Ürün Barkodu', 
                         'Ürün Adı', 'Ürün Kodu', 'Ürün Rengi', 'Ürün Modeli', 'Raf No', 
-                        'Adet', 'Not', 'Sipariş Detay', 'Sipariş Durumu']
+                        'Adet', 'Not', 'Sipariş Detay', 'Sipariş Durumu', 'Sipariş Tarihi', 'Kalan Süre']
         df = df[columns_order]
+        
+        # INDEX'İ 1'DEN BAŞLAT VE İSİMLENDİR
+        df.index = df.index + 1
+        df.index.name = 'Sipariş Sayısı'
         
         return df, None
         
