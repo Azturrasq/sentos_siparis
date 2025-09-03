@@ -195,7 +195,7 @@ def process_data(orders_data, products_data):
                     if isinstance(printed_orders_dict, dict):
                         for printed_key, printed_date in printed_orders_dict.items():
                             if str(printed_key).strip() == order_id_str:
-                                row_data['Sipariş Detay'] = f"Bu Sipariş Daha Önce Excel'e Aktarıldı ({printed_date})"
+                                row_data['Sipariş Detay'] = f"Daha Önce Yazdırıldı > ({printed_date})"
                                 found_in_printed = True
                                 break
                 except Exception as e:
@@ -216,15 +216,21 @@ def process_data(orders_data, products_data):
                             row_data['Ürün Rengi'] = product_info.iloc[0]['Ürün Rengi']
                             row_data['Ürün Modeli'] = product_info.iloc[0]['Ürün Modeli']
                             row_data['Raf No'] = product_info.iloc[0]['Raf No']
-                            row_data['Not'] = 'Eşleşti'
+                            
+                            # NOT SÜTUNU - BARKOD VE RAF DURUMU
+                            raf_no = product_info.iloc[0]['Raf No']
+                            if pd.isna(raf_no) or str(raf_no).strip() == '' or str(raf_no).strip() == 'nan':
+                                row_data['Not'] = 'Barkod Eşleşti - Raf Adresi Yok'
+                            else:
+                                row_data['Not'] = 'Barkod Eşleşti - Raf Adresi Var'
                         else:
                             # Barkod var ama eşleşmiyor
-                            row_data['Not'] = 'Eşleşmedi'
+                            row_data['Not'] = 'Barkod Eşleşmedi - Raf Adresi Yok'
                     except Exception as e:
                         row_data['Not'] = 'Hata'
                 else:
                     # Barkod yok
-                    row_data['Not'] = 'Barkod yok'
+                    row_data['Not'] = 'Barkod Yok - Raf Adresi Yok'
                 
                 # HER ÜRÜNÜ MUTLAKA EKLE
                 processed_orders.append(row_data)
