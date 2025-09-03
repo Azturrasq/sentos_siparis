@@ -267,8 +267,12 @@ def load_printed_orders():
 def save_printed_orders_to_persistent():
     """Excel indirme butonuna basıldığında çalışır - siparişleri tarihiyle birlikte kaydeder."""
     if 'current_orders' in st.session_state:
-        # Mevcut yazdırılmış siparişleri yükle
+        # Mevcut yazdırılmış siparişleri yükle - GÜVENLİ ŞEKİLDE
         printed_orders = load_printed_orders()
+        
+        # GÜVENLİK KONTROLÜ: Eğer dict değilse boş dict yap
+        if not isinstance(printed_orders, dict):
+            printed_orders = {}
         
         # Bugünkü tarihi al
         today = datetime.now().strftime("%d.%m.%Y")
@@ -276,8 +280,11 @@ def save_printed_orders_to_persistent():
         # Yeni siparişleri tarihiyle birlikte ekle
         current_orders = st.session_state.current_orders
         for order_id in current_orders:
-            if order_id not in printed_orders:  # Sadece daha önce yazdırılmamışları ekle
-                printed_orders[order_id] = today
+            # GÜVENLİK: order_id'yi string'e çevir
+            order_id_str = str(order_id) if order_id is not None else "Unknown"
+            
+            if order_id_str not in printed_orders:  # Sadece daha önce yazdırılmamışları ekle
+                printed_orders[order_id_str] = today
         
         # JSON dosyasına kaydet
         try:
