@@ -184,14 +184,14 @@ def process_data(orders_data, products_data):
                             continue
                     
                     if order_datetime:
+                        # TIMEZONE EKLEMESİ: order_datetime'ı da Türkiye saatine çevir
+                        order_datetime = order_datetime.replace(tzinfo=turkey_tz)
+                        
                         # Sipariş tarihi formatla
                         siparis_tarihi = order_datetime.strftime("%d.%m.%Y %H:%M")
                         
-                        # DÜZELTME: Termin = sipariş zamanı + TAM 24 SAAT
-                        termin = order_datetime + pd.Timedelta(hours=24)
-                        
-                        # DEBUG: Termin zamanını göster
-                        st.write(f"DEBUG - Sipariş: {siparis_tarihi}, Termin: {termin.strftime('%d.%m.%Y %H:%M')}")
+                        # Termin = sipariş zamanı + TAM 24 SAAT
+                        termin = order_datetime + timedelta(hours=24)
                         
                         # Kalan süre hesapla
                         kalan_saniye = (termin - now).total_seconds()
