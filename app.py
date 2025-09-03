@@ -131,8 +131,10 @@ def process_data(orders_data, products_data):
         if local_df is None:
             return None, "Yerel ürün verileri yüklenemedi."
         
-        # Yazdırılmış siparişleri yükle
+        # Yazdırılmış siparişleri yükle - GÜVENLİ ŞEKİLDE
         printed_orders_dict = load_printed_orders()
+        if not isinstance(printed_orders_dict, dict):
+            printed_orders_dict = {}  # Eğer dict değilse boş dict yap
         
         # SİPARİŞ DURUMU KODLARI - İSİM ÇEVRİMİ
         status_map = {
@@ -184,34 +186,42 @@ def process_data(orders_data, products_data):
                     'Sipariş Durumu': order_status_name  # İSİM OLARAK
                 }
                 
-                # SİPARİŞ DETAY KONTROLÜ - DAHA DİKKATLİ
+                # SİPARİŞ DETAY KONTROLÜ - GÜVENLİ
                 order_id_str = str(order_id).strip()
                 
-                # JSON'daki tüm anahtarları kontrol et
+                # GÜVENLİ DICT KONTROLÜ
                 found_in_printed = False
-                for printed_key, printed_date in printed_orders_dict.items():
-                    if str(printed_key).strip() == order_id_str:
-                        row_data['Sipariş Detay'] = f"Bu Sipariş Daha Önce Excel'e Aktarıldı ({printed_date})"
-                        found_in_printed = True
-                        break
+                try:
+                    if isinstance(printed_orders_dict, dict):
+                        for printed_key, printed_date in printed_orders_dict.items():
+                            if str(printed_key).strip() == order_id_str:
+                                row_data['Sipariş Detay'] = f"Bu Sipariş Daha Önce Excel'e Aktarıldı ({printed_date})"
+                                found_in_printed = True
+                                break
+                except Exception as e:
+                    # Hata varsa boş bırak
+                    pass
                 
                 if not found_in_printed:
                     row_data['Sipariş Detay'] = "-"
                 
                 # EĞER BARKOD VARSA EŞLEŞTIRME DENEMESİ
                 if barcode and barcode.strip():
-                    product_info = local_df[local_df['Ürün Barkodu'].astype(str) == str(barcode)]
-                    
-                    if not product_info.empty:
-                        # Eşleşme bulundu
-                        row_data['Ürün Kodu'] = product_info.iloc[0]['Ürün Kodu']
-                        row_data['Ürün Rengi'] = product_info.iloc[0]['Ürün Rengi']
-                        row_data['Ürün Modeli'] = product_info.iloc[0]['Ürün Modeli']
-                        row_data['Raf No'] = product_info.iloc[0]['Raf No']
-                        row_data['Not'] = 'Eşleşti'
-                    else:
-                        # Barkod var ama eşleşmiyor
-                        row_data['Not'] = 'Eşleşmedi'
+                    try:
+                        product_info = local_df[local_df['Ürün Barkodu'].astype(str) == str(barcode)]
+                        
+                        if not product_info.empty:
+                            # Eşleşme bulundu
+                            row_data['Ürün Kodu'] = product_info.iloc[0]['Ürün Kodu']
+                            row_data['Ürün Rengi'] = product_info.iloc[0]['Ürün Rengi']
+                            row_data['Ürün Modeli'] = product_info.iloc[0]['Ürün Modeli']
+                            row_data['Raf No'] = product_info.iloc[0]['Raf No']
+                            row_data['Not'] = 'Eşleşti'
+                        else:
+                            # Barkod var ama eşleşmiyor
+                            row_data['Not'] = 'Eşleşmedi'
+                    except Exception as e:
+                        row_data['Not'] = 'Hata'
                 else:
                     # Barkod yok
                     row_data['Not'] = 'Barkod yok'
