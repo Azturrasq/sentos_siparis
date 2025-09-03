@@ -186,12 +186,12 @@ def process_data(orders_data, products_data):
                         # Sipariş tarihi formatla
                         siparis_tarihi = order_datetime.strftime("%d.%m.%Y %H:%M")
                         
-                        # Termin hesapla (sipariş tarihi + 23:59)
-                        termin = order_datetime.replace(hour=23, minute=59, second=59) + pd.Timedelta(days=1)
-                        termin = termin.replace(hour=0, minute=0, second=0) - pd.Timedelta(minutes=1)  # 23:59
+                        # DÜZELTME: Termin = sipariş zamanı + TAM 24 SAAT
+                        termin = order_datetime + pd.Timedelta(hours=24)
                         
                         # Kalan süre hesapla
-                        kalan_dakika = int((termin - now).total_seconds() / 60)
+                        kalan_saniye = (termin - now).total_seconds()
+                        kalan_dakika = int(kalan_saniye / 60)
                         
                         if kalan_dakika > 0:
                             saat = kalan_dakika // 60
